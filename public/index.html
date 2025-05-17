@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Papas y Votación</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Aplicación para registrar y votar por papas.">
+  <meta name="theme-color" content="#4CAF50">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      background: #f4f6f8;
+      color: #222;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+      padding: 32px 24px 24px 24px;
+    }
+    h1 {
+      text-align: center;
+      color: #1976d2;
+      margin-bottom: 18px;
+      letter-spacing: 1px;
+    }
+    .info {
+      text-align: center;
+      color: #555;
+      margin-bottom: 18px;
+      font-size: 1.08rem;
+    }
+    form {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      background: #f7f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    input {
+      padding: 10px;
+      border-radius: 4px;
+      border: 1.5px solid #bbb;
+      font-size: 1rem;
+      flex: 1 1 180px;
+      transition: border 0.2s;
+    }
+    input:focus {
+      border: 1.5px solid #1976d2;
+      outline: none;
+    }
+    .input-error {
+      border: 1.5px solid #c62828 !important;
+      background: #ffebee;
+    }
+    button, .vote-btn {
+      padding: 10px 18px;
+      border-radius: 4px;
+      border: none;
+      background: #1976d2;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:disabled, .vote-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled), .vote-btn:hover:not(:disabled) {
+      background: #125ea7;
+    }
+    .message {
+      text-align: center;
+      margin-bottom: 18px;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 1.08rem;
+      display: none;
+    }
+    .message.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border: 1px solid #388e3c;
+      display: block;
+    }
+    .message.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #c62828;
+      display: block;
+    }
+    .loading {
+      text-align: center;
+      color: #1976d2;
+      margin: 18px 0;
+      font-size: 1.1rem;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      background: #f9f9f9;
+      margin-bottom: 12px;
+      padding: 14px 18px;
+      border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.08rem;
+      transition: background 0.2s;
+    }
+    .papa-info {
+      flex: 1;
+      font-weight: 500;
+      color: #333;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 12px 2px;
+      }
+      form {
+        flex-direction: column;
+        gap: 8px;
+      }
+      input, button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><i class="fas fa-seedling"></i> Sistema de Votación de Papas</h1>
+    <div class="info">
+      Agrega una nueva papa y su país de origen.<br>
+      ¡Vota por tu papa favorita!
+    </div>
+    <div id="message" class="message"></div>
+    <form id="papa-form" autocomplete="off">
+      <input type="text" id="name_papa" placeholder="Nombre de la papa" required>
+      <input type="text" id="country" placeholder="País de origen">
+      <button type="submit"><i class="fas fa-plus"></i> Agregar Papa</button>
+    </form>
+    <div id="loading" class="loading" style="display:none;">Cargando papas...</div>
+    <ul id="papas-list"></ul>
+  </div>
+  <script>
+    const messageDiv = document.getElementById('message');
+    const loadingDiv = document.getElementById('loading');
+    const namePapaInput = document.getElementById('name_papa');
+    const countryInput = document.getElementById('country');
+    const form = document.getElementById('papa-form');
+
+    function showMessage(msg, type = 'success') {
+      messageDiv.textContent = msg;
+      messageDiv.className = 'message ' + type;
+      messageDiv.style.display = 'block';
+      setTimeout(() => {
+        messageDiv.style.display = 'none';
+      }, 2500);
+    }
+
+    function setLoading(loading) {
+      loadingDiv.style.display = loading ? 'block' : 'none';
+    }
+
+    function cargarPapas() {
+      setLoading(true);
+      fetch('/api/papas')
+        .then(res => res.json())
+        .then(data => {
+          setLoading(false);
+          const list = document.getElementById('papas-list');
+          list.innerHTML = '';
+          if (data.data && data.data.length > 0) {
+            data.data.forEach(papa => {
+              const li = document.createElement('li');
+              const info = document.createElement('span');
+              info.className = 'papa-info';
+              info.textContent = papa.name_papa + (papa.country ? ' (' + papa.country + ')' : '');
+              // Botón de votar
+              const voteBtn = document.createElement('button');
+              voteBtn.className = 'vote-btn';
+              voteBtn.innerHTML = `<i class="fas fa-thumbs-up"></i> Votar (${papa.votes || 0})`;
+              voteBtn.disabled = false;
+              voteBtn.onclick = () => {
+                voteBtn.disabled = true;
+                voteBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Votando...`;
+                fetch(`/api/papas/${papa._id}/vote`, { method: 'POST' })
+                  .then(res => res.json())
+                  .then(data => {
+                    if (data.success) {
+                      showMessage('¡Gracias por tu voto!', 'success');
+                      cargarPapas();
+                    } else {
+                      showMessage(data.message || 'Error al votar.', 'error');
+                      voteBtn.disabled = false;
+                      voteBtn.innerHTML = `<i class="fas fa-thumbs-up"></i> Votar (${papa.votes || 0})`;
+                    }
+                  })
+                  .catch(() => {
+                    showMessage('Error al votar.', 'error');
+                    voteBtn.disabled = false;
+                    voteBtn.innerHTML = `<i class="fas fa-thumbs-up"></i> Votar (${papa.votes || 0})`;
+                  });
+              };
+              li.appendChild(info);
+              li.appendChild(voteBtn);
+              list.appendChild(li);
+            });
+          } else {
+            list.innerHTML = '<li>No hay papas registradas.</li>';
+          }
+        })
+        .catch(() => {
+          setLoading(false);
+          showMessage('Error al cargar las papas.', 'error');
+        });
+    }
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name_papa = namePapaInput.value.trim();
+      const country = countryInput.value.trim();
+      // Validación visual
+      if (!name_papa) {
+        showMessage('El nombre de la papa es obligatorio.', 'error');
+        namePapaInput.classList.add('input-error');
+        namePapaInput.focus();
+        return;
+      } else {
+        namePapaInput.classList.remove('input-error');
+      }
+      form.querySelector('button[type="submit"]').disabled = true;
+      form.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Agregando...';
+      fetch('/api/papas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name_papa, country, name: name_papa })
+      })
+      .then(res => res.json())
+      .then(data => {
+        form.querySelector('button[type="submit"]').disabled = false;
+        form.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-plus"></i> Agregar Papa';
+        if (data.success) {
+          showMessage('¡Papa agregada con éxito!', 'success');
+          cargarPapas();
+          form.reset();
+        } else {
+          showMessage(data.message || 'Error al agregar la papa.', 'error');
+        }
+      })
+      .catch(() => {
+        form.querySelector('button[type="submit"]').disabled = false;
+        form.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-plus"></i> Agregar Papa';
+        showMessage('Error al agregar la papa.', 'error');
+      });
+    });
+
+    // Quitar error visual al escribir
+    namePapaInput.addEventListener('input', () => {
+      if (namePapaInput.value.trim()) {
+        namePapaInput.classList.remove('input-error');
+      }
+    });
+
+    cargarPapas();
+  </script>
+</body>
+</html>
